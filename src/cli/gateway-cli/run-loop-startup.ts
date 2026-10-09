@@ -153,7 +153,7 @@ export function createGatewayStartupOperations(): {
     scope.signal.aborted &&
     (error === scope.signal.reason ||
       (error instanceof SqliteIntegrityWorkerInterruptedError &&
-        (error.signal === "SIGTERM" || error.signal === "SIGINT")));
+        ["SIGTERM", "SIGINT", "SIGHUP"].includes(error.signal)));
   const run: GatewayStartupOperation = async (operation) => {
     if (scope.isClosing) {
       throw scope.signal.reason;

@@ -979,11 +979,13 @@ describe("runGatewayLoop", () => {
   );
 
   it.each([
-    { stop: true, signal: "SIGTERM", cleanStop: true },
-    { stop: true, signal: "SIGKILL", cleanStop: false },
+    { signal: "SIGTERM", cleanStop: true },
+    { signal: "SIGHUP", cleanStop: true },
+    { signal: "SIGKILL", cleanStop: false },
   ] as const)(
-    "joins an accepted stop before classifying an independent startup worker: $stop / $signal",
-    async ({ stop, signal, cleanStop }) => {
+    "joins an accepted stop before classifying an independent startup worker: $signal",
+    async ({ signal, cleanStop }) => {
+      const stopSignal = signal === "SIGHUP" ? "SIGHUP" : "SIGTERM";
       const { SqliteIntegrityWorkerInterruptedError } =
         await import("../../infra/sqlite-integrity-worker-error.js");
       await withIsolatedSignals(async ({ captureSignal }) => {
@@ -1013,10 +1015,8 @@ describe("runGatewayLoop", () => {
         const settled = Promise.allSettled([loop]);
         try {
           await entered.promise;
-          if (stop) {
-            captureSignal("SIGTERM")();
-            await drainEntered.promise;
-          }
+          captureSignal(stopSignal)();
+          await drainEntered.promise;
           inspection.reject(failure);
           await waitForLoopTurn();
           expect(runtime.exit).not.toHaveBeenCalled();
@@ -1029,7 +1029,7 @@ describe("runGatewayLoop", () => {
             expect(await settled).toEqual([{ status: "fulfilled", value: undefined }]);
             expect(completeBoot).toHaveBeenCalledExactlyOnceWith({
               outcome: "clean_stop",
-              reason: "stop (SIGTERM)",
+              reason: `stop (${stopSignal})`,
             });
           } else {
             expect(await settled).toEqual([{ status: "rejected", reason: failure }]);
@@ -1043,9 +1043,7 @@ describe("runGatewayLoop", () => {
           inspection.reject(failure);
           drain.resolve();
           await settled;
-          if (stop) {
-            await exited;
-          }
+          await exited;
         }
       });
     },
