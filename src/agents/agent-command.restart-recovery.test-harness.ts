@@ -9,6 +9,7 @@ import { getReplyPayloadMetadata, type ReplyPayload } from "../auto-reply/reply-
 import { mirrorDeliveredReplyToTranscript } from "../auto-reply/reply/dispatch-from-config.transcript.js";
 import type { SessionEntry } from "../config/sessions.js";
 import * as sessionAccessor from "../config/sessions/session-accessor.js";
+import { loadSessionCostSummary } from "../infra/session-cost-usage.js";
 import { closeOpenClawAgentDatabasesAsync } from "../state/openclaw-agent-db.js";
 import { withEnvAsync } from "../test-utils/env.js";
 import { withOpenClawTestState } from "../test-utils/openclaw-test-state.js";
@@ -95,6 +96,8 @@ export function registerAgentCommandRecoveryCases(
       context.params.terminalReplyExpectation = "optional";
       const output = {
         text: "private terminal confirmation",
+        usage: { input: 2, output: 3, cacheRead: 10, total: 15 },
+        diagnosticUsage: { input: 20, output: 30, cacheRead: 100, total: 150 },
         didSendViaMessagingTool: true,
         didDeliverSourceReplyViaMessageTool: true,
         messagingToolSourceReplyPayloads: [
@@ -116,7 +119,11 @@ export function registerAgentCommandRecoveryCases(
       const transcript = await vi.importActual<
         typeof import("./command/transcript-persistence.js")
       >("./command/transcript-persistence.js");
-      state.persistCliTurnTranscriptMock.mockImplementation(transcript.persistCliTurnTranscript);
+      let persistedParams: Parameters<typeof transcript.persistCliTurnTranscript>[0] | undefined;
+      state.persistCliTurnTranscriptMock.mockImplementation(async (params) => {
+        persistedParams = params;
+        return transcript.persistCliTurnTranscript(params);
+      });
       state.deliverAgentCommandResultMock.mockImplementation(async () => {
         for (const payload of result.payloads ?? []) {
           const mirror = expectDefined(
@@ -131,6 +138,10 @@ export function registerAgentCommandRecoveryCases(
         return { deliverySucceeded: true };
       });
       await agentCommand({ message: "hello", to: "+1234567890", sessionKey: scope.sessionKey });
+      // Replaying the same turn must not count its usage twice.
+      await transcript.persistCliTurnTranscript(
+        expectDefined(persistedParams, "CLI turn parameters"),
+      );
       const events = await sessionAccessor.loadTranscriptEvents({
         ...scope,
         sessionId: entry.sessionId,
@@ -140,10 +151,32 @@ export function registerAgentCommandRecoveryCases(
         .filter((event) => event.type === "message")
         .map((event) => requireRecord(event.message, "transcript message"))
         .filter((message) => message.role === "assistant");
-      expect(assistants.map((message) => message.content)).toEqual([
+      expect(
+        assistants.filter((message) => message.display !== false).map((message) => message.content),
+      ).toEqual([
         [{ type: "text", text: "First progress update" }],
         [{ type: "text", text: "Second progress update" }],
       ]);
+      expect(assistants.filter((message) => message.display === false)).toMatchObject([
+        {
+          content: [],
+          usage: {
+            input: 20,
+            output: 30,
+            cacheRead: 100,
+            totalTokens: 150,
+            contextUsage: { state: "available", promptTokens: 12, totalTokens: 15 },
+          },
+        },
+      ]);
+      expect(JSON.stringify(events)).not.toContain("private terminal confirmation");
+      const usage = await loadSessionCostSummary({
+        agentId: scope.agentId,
+        sessionId: entry.sessionId,
+        sessionTarget: { ...scope, sessionId: entry.sessionId },
+        config: {},
+      });
+      expect(usage).toMatchObject({ input: 20, output: 30, cacheRead: 100, totalTokens: 150 });
     });
   });
 
