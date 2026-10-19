@@ -320,7 +320,8 @@ it("keeps Gateway plugin ownership with config-wide metadata across workspace re
         [input.workspaceDir, input.config, "selected/original"],
         [siblingWorkspace, input.config, "selected/original"],
         [input.workspaceDir, input.config, "selected/original"],
-        [siblingWorkspace, changedConfig, "selected/changed"],
+        // Unrelated model changes preserve the plugin's registration-time config snapshot.
+        [siblingWorkspace, changedConfig, "selected/original"],
         [input.workspaceDir, input.config, "selected/original"],
       ] as const) {
         await using resources = new PreparedModelRuntimeBuildResources(
@@ -366,7 +367,7 @@ it("keeps Gateway plugin ownership with config-wide metadata across workspace re
         expect(hookResult?.prependContext).toBe(model);
         expect(getPluginRuntimeLoadContext(root)?.workspaceDir).toBe(input.workspaceDir);
       }
-      expect(captures).toEqual(["selected/original", "selected/changed"]);
+      expect(captures).toEqual(["selected/original"]);
     } finally {
       await gateway.close();
     }

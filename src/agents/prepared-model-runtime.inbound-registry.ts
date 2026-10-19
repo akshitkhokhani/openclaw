@@ -71,17 +71,9 @@ function resolveLendingGatewayRegistry(
   // A process-active sibling with matching files is not this caller's runtime owner.
   const requestRegistry = getPluginRuntimeGatewayRequestScope()?.pluginRegistry;
   const registry = requestRegistry && getPluginRegistryGatewayOwner(requestRegistry)?.current();
-  const context = getPluginRuntimeLoadContext(registry);
   return registry &&
-    context?.metadataSnapshot &&
     (metadataSnapshot.workspaceDir === undefined ||
-      context.workspaceDir === metadataSnapshot.workspaceDir) &&
-    getReusablePluginRuntimeActivation(registry, {
-      config: input.config,
-      env: process.env,
-      workspaceDir: context.workspaceDir,
-      metadataSnapshot: context.metadataSnapshot,
-    })
+      getPluginRuntimeLoadContext(registry)?.workspaceDir === metadataSnapshot.workspaceDir)
     ? registry
     : undefined;
 }
