@@ -233,6 +233,14 @@ maintenance ownership before starting the Gateway. This covers the default image
 command and Compose's foreground Gateway command, including its selected profile.
 Routine image upgrades do not require a separate Doctor pass.
 
+Stop the previous Gateway container before starting a replacement against the
+same state volume. Do not run overlapping Gateway replicas or rolling updates
+that mount that same state concurrently. The replacement needs exclusive
+maintenance ownership for its startup repair; a live owner blocks takeover.
+For ownership errors after a stop or crash, follow
+[Compose operations](/install/docker/compose-operations) rather than deleting
+lock files.
+
 Activation retains a full pre-repair copy of local state under
 `<state-dir>.update-captures/` the first time Doctor captures in a container.
 Later starts of the same container (`docker stop`/`docker start`, restart
@@ -252,6 +260,14 @@ cannot provide exclusive file creation for state ownership, stop OpenClaw, back
 up its state, and move the state volume to a local filesystem that supports it.
 Ordinary database transactions use SQLite locking on that volume. Do not delete
 state or lock files to bypass ownership.
+
+Prefer local storage for the state volume. NAS mounts using NFS, SMB, or CIFS
+cannot provide the shared-memory coordination SQLite WAL requires. OpenClaw
+selects rollback journaling (`journal_mode=DELETE`) automatically when it detects
+these filesystems and refuses to open the database if SQLite cannot switch to
+that mode. This fallback does not remove the filesystem locking requirements or
+permit multiple Gateway replicas to share state. WAL-based backup tools such as
+Litestream require local WAL storage; see [Backups](/install/backups).
 
 Other CLI commands and help pass through unchanged. If you replace the image's
 entrypoint, run Doctor against the same mounted state/config before launching the
