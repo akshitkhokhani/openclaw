@@ -40,6 +40,7 @@ export function cliBackendAcceptsAuthProfileForwarding(params: {
 export async function resolveCliExecutionAuthProfileId(params: {
   cliExecutionProvider: string;
   authProfileProvider: string;
+  model: string;
   config: OpenClawConfig;
   agentDir: string;
   selected?: CliExecutionAuthProfileSelection;
@@ -119,6 +120,7 @@ export async function resolveCliExecutionAuthProfileId(params: {
       store,
       provider,
       preferredProfile: selectedAuthProfileId,
+      forModel: params.model,
     });
     const profileId = order.profileIds.find((id) => {
       const credential = store.profiles[id];

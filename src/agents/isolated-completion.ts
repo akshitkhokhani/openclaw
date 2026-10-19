@@ -15,14 +15,12 @@ import type { ThinkLevel } from "../auto-reply/thinking.js";
 import { requiredWorkerHelperError } from "../config/required-worker-profile.js";
 import type { OpenClawConfig } from "../config/types.openclaw.js";
 import { racePromiseWithAbortSignal } from "../infra/abort-signal.js";
-import { emitTrustedDiagnosticEvent, isDiagnosticsEnabled } from "../infra/diagnostic-events.js";
 import { resolvePreferredOpenClawTmpDir } from "../infra/tmp-openclaw-dir.js";
 import type { Model } from "../llm/types.js";
 import { withPluginRuntimeGenerationScope } from "../plugins/runtime/generation-scope.js";
 import { runWithAsyncWorkResources } from "../shared/async-work-resources.js";
 import { trackAsyncWork } from "../shared/async-work-scope.js";
 import { scheduleAbsoluteDeadline } from "../utils/absolute-deadline.js";
-import { estimateAggregateUsageCost } from "../utils/usage-format.js";
 import {
   assertOperatorModelAllowed,
   prepareSystemAgentRunAdmission,
@@ -42,6 +40,7 @@ import type {
 } from "./harness/types.js";
 import {
   createIsolatedCompletionDiagnostics,
+  emitIsolatedCompletionUsage,
   type IsolatedCompletionDiagnostics,
 } from "./isolated-completion-diagnostics.js";
 import { createIsolatedCompletionModelAuthority } from "./isolated-completion-model-authority.js";
@@ -82,12 +81,7 @@ import {
 } from "./runtime-plan/prepare-auth.js";
 import { scopeAuthProfileStoreToPreparedPlan } from "./runtime-plan/resolve-auth.js";
 import { prepareSimpleCompletionModel } from "./simple-completion-runtime.js";
-import {
-  hasObservedModelUsage,
-  normalizeUsage,
-  toDiagnosticUsage,
-  type UsageLike,
-} from "./usage.js";
+import type { UsageLike } from "./usage.js";
 
 type RunIsolatedCompletionParams = {
   purpose?: IsolatedCompletionPurpose;
@@ -183,6 +177,7 @@ async function runCliIsolatedCompletion(
       })
         ? await resolveCliExecutionAuthProfileId({
             cliExecutionProvider: provider,
+            model: request.model,
             authProfileProvider: modelProvider,
             config: request.config,
             agentDir: request.agentDir,
@@ -314,39 +309,6 @@ function prepareIsolatedHostAuthorization<
 }
 
 /** Plugin completions finalize usage with host-plugin attribution; core callers have no other path. */
-function emitIsolatedCompletionUsage(params: {
-  config: OpenClawConfig;
-  agentId: string;
-  agentDir: string;
-  purpose?: IsolatedCompletionPurpose;
-  result: IsolatedCompletionResult;
-}): void {
-  const { config, result } = params;
-  if (params.purpose === "plugin-completion" || !isDiagnosticsEnabled(config)) {
-    return;
-  }
-  const usage = normalizeUsage(result.diagnosticUsage ?? result.usage);
-  if (!hasObservedModelUsage(usage)) {
-    return;
-  }
-  emitTrustedDiagnosticEvent({
-    type: "model.usage",
-    agentId: params.agentId,
-    provider: result.provider,
-    model: result.model,
-    purpose: params.purpose ?? "isolated-completion",
-    runtimeKind: result.owner.kind,
-    usage: toDiagnosticUsage(usage),
-    costUsd: estimateAggregateUsageCost({
-      usage,
-      provider: result.provider,
-      model: result.model,
-      config,
-      agentDir: params.agentDir,
-    }),
-  });
-}
-
 /** Run one fresh completion with the selected runtime's documented isolation boundary. */
 export async function runIsolatedCompletion(
   params: RunIsolatedCompletionParams,

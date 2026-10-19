@@ -55,6 +55,15 @@ export function resetAuthProfileFailureState(
           failureCounts: existing.failureCounts,
         }
       : {}),
+    ...(isBlockScopedToDifferentModel(existing, successfulModel)
+      ? {
+          blockedUntil: existing.blockedUntil,
+          blockedReason: existing.blockedReason,
+          blockedSource: existing.blockedSource,
+          blockedModel: existing.blockedModel,
+          blockedScope: existing.blockedScope,
+        }
+      : {}),
     ...overrides,
   };
 }

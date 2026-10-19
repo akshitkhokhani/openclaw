@@ -66,6 +66,7 @@ import { isRuntimeToolAllowed, isToolAllowedByPolicies } from "../tool-policy-ma
 import { DEFAULT_MAX_LIVE_TOOL_RESULT_CHARS } from "../tool-result-limits.js";
 import {
   resolveCommandAuthProfileSelection,
+  buildCommandCliAuthContext,
   resolveHarnessAuthProfileSelection,
 } from "./attempt-auth-selection.js";
 import { emitAgentAttemptRuntimeStart } from "./attempt-callbacks.js";
@@ -281,13 +282,8 @@ export async function runAgentAttempt(params: AgentAttemptParams) {
     allowCliAuthProfileForwarding &&
     !isRawModelRun &&
     (!harnessAuthSelection.authProfileId || harnessAuthSelection.authProfileIdSource === "auto");
-  const buildCliAuthContext = () => ({
-    cliExecutionProvider,
-    authProfileProvider: params.authProfileProvider,
-    config: params.cfg,
-    agentDir: params.agentDir,
-    selected: harnessAuthSelection,
-  });
+  const buildCliAuthContext = () =>
+    buildCommandCliAuthContext(params, cliExecutionProvider, harnessAuthSelection);
   const authProfileId =
     allowCliAuthProfileForwarding && !cliAuthNeedsSessionBinding
       ? await resolveCliExecutionAuthProfileId(buildCliAuthContext())

@@ -200,6 +200,7 @@ export async function runCliFallbackCandidate(
         const authProfileId = allowCliAuthProfileForwarding
           ? await resolveCliExecutionAuthProfileId({
               cliExecutionProvider: params.cliExecutionProvider,
+              model: params.model,
               authProfileProvider: params.provider,
               config: params.runtimeConfig,
               agentDir: params.candidateRun.agentDir,

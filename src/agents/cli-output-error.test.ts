@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createCliJsonlStreamingParser } from "./cli-output-stream.js";
 import { extractCliErrorMessage, formatCliOutputError, parseCliOutput } from "./cli-output.js";
+import { createCliOutputFailoverError } from "./cli-runner/output-error.js";
 import { createClaudeApiErrorFixture } from "./test-helpers/claude-api-error-fixture.js";
 
 type ParseCliOutputParams = Parameters<typeof parseCliOutput>[0];
@@ -504,4 +505,27 @@ describe("createCliJsonlStreamingParser errors", () => {
       usage: undefined,
     });
   });
+});
+
+it("classifies a model quota error from Claude stream output without changing ordinary errors", () => {
+  const message =
+    "You've reached your Fable limit. Switch to another model, or manage usage credits to continue.";
+  for (const [errorText, reason] of [
+    [message, "rate_limit"],
+    ["You\'ve reached your Sonnet 4.6 limit. Switch to another model to continue.", "rate_limit"],
+    ["You've reached your turn limit.", "unknown"],
+  ] as const) {
+    const output = parseCliJsonl(
+      JSON.stringify({ type: "result", is_error: true, errors: [errorText] }),
+      {
+        command: "claude",
+        output: "jsonl",
+        jsonlDialect: "claude-stream-json",
+      },
+      "claude-cli",
+    );
+    expect(
+      createCliOutputFailoverError({ output, provider: "claude-cli", model: "claude-fable-5-1" }),
+    ).toMatchObject({ reason, model: "claude-fable-5-1" });
+  }
 });
