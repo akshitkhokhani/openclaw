@@ -1,5 +1,6 @@
 /** Persists CLI and ACP command fallbacks through the shared transcript owner. */
 import { asOptionalRecord } from "@openclaw/normalization-core/record-coerce";
+import { getReplyPayloadMetadata } from "../../auto-reply/reply-payload.js";
 import {
   persistSessionTranscriptTurn,
   type TranscriptMessageAppendResult,
@@ -217,6 +218,15 @@ async function persistTextTurnTranscript(
 }
 
 export function resolveCliTranscriptReplyText(result: EmbeddedAgentRunResult): string {
+  // Delivery owns the individual source-reply mirrors. Their joined visible text
+  // is not another CLI answer, and private terminal output must stay private.
+  if (
+    result.payloads?.some(
+      (payload) => getReplyPayloadMetadata(payload)?.sourceReplyTranscriptMirror,
+    )
+  ) {
+    return "";
+  }
   const visibleText = result.meta.finalAssistantVisibleText?.trim();
   if (visibleText) {
     return visibleText;
