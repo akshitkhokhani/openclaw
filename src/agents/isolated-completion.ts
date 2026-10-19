@@ -47,6 +47,7 @@ import { createIsolatedCompletionModelAuthority } from "./isolated-completion-mo
 import {
   hasCliSideEffectEvidence,
   IsolatedCompletionError,
+  type IsolatedCompletionResult,
   isRetryableIsolatedQuotaFailure,
   requireIsolatedAssistantText,
 } from "./isolated-completion-output.js";
@@ -81,7 +82,7 @@ import {
 } from "./runtime-plan/prepare-auth.js";
 import { scopeAuthProfileStoreToPreparedPlan } from "./runtime-plan/resolve-auth.js";
 import { prepareSimpleCompletionModel } from "./simple-completion-runtime.js";
-import type { UsageLike } from "./usage.js";
+export type { IsolatedCompletionResult } from "./isolated-completion-output.js";
 
 type RunIsolatedCompletionParams = {
   purpose?: IsolatedCompletionPurpose;
@@ -114,17 +115,6 @@ type RunIsolatedCompletionParams = {
   /** Internal answer budget; reasoning reserves still obey model and explicit stream limits. */
   answerTokenBudget?: number;
   streamParams?: AgentHarnessIsolatedCompletionParamsV2["streamParams"];
-};
-
-export type IsolatedCompletionResult = {
-  text: string;
-  provider: string;
-  model: string;
-  owner: { kind: "cli" | "harness"; id: string };
-  /** CLI runtimes may not report token usage; absence must not be projected as zero. */
-  usage?: UsageLike;
-  /** Terminal cumulative CLI turn usage; diagnostics prefer it over `usage`. */
-  diagnosticUsage?: UsageLike;
 };
 
 type AgentHarnessIsolatedCompletionParams = Parameters<

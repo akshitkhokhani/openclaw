@@ -6,8 +6,8 @@ import {
   isDiagnosticsEnabled,
 } from "../infra/diagnostic-events.js";
 import { estimateAggregateUsageCost } from "../utils/usage-format.js";
+import type { IsolatedCompletionResult } from "./isolated-completion-output.js";
 import type { IsolatedCompletionPurpose } from "./isolated-completion-purpose.js";
-import type { IsolatedCompletionResult } from "./isolated-completion.js";
 import { hasObservedModelUsage, normalizeUsage, toDiagnosticUsage } from "./usage.js";
 
 /** Measure runtime dispatch, not provider-wire inference or an inferred queue wait. */
