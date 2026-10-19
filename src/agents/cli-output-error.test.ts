@@ -512,7 +512,7 @@ it("classifies a model quota error from Claude stream output without changing or
     "You've reached your Fable limit. Switch to another model, or manage usage credits to continue.";
   for (const [errorText, reason] of [
     [message, "rate_limit"],
-    ["You\'ve reached your Sonnet 4.6 limit. Switch to another model to continue.", "rate_limit"],
+    ["You've reached your Sonnet 4.6 limit. Switch to another model to continue.", "rate_limit"],
     ["You've reached your turn limit.", "unknown"],
   ] as const) {
     const output = parseCliJsonl(
