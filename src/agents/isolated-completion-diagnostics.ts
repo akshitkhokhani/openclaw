@@ -10,6 +10,40 @@ import type { IsolatedCompletionResult } from "./isolated-completion-output.js";
 import type { IsolatedCompletionPurpose } from "./isolated-completion-purpose.js";
 import { hasObservedModelUsage, normalizeUsage, toDiagnosticUsage } from "./usage.js";
 
+/** Plugin completions finalize usage with host-plugin attribution; core callers have no other path. */
+export function emitIsolatedCompletionUsage(params: {
+  config: OpenClawConfig;
+  agentId: string;
+  agentDir: string;
+  purpose?: IsolatedCompletionPurpose;
+  result: IsolatedCompletionResult;
+}): void {
+  const { config, result } = params;
+  if (params.purpose === "plugin-completion" || !isDiagnosticsEnabled(config)) {
+    return;
+  }
+  const usage = normalizeUsage(result.diagnosticUsage ?? result.usage);
+  if (!hasObservedModelUsage(usage)) {
+    return;
+  }
+  emitTrustedDiagnosticEvent({
+    type: "model.usage",
+    agentId: params.agentId,
+    provider: result.provider,
+    model: result.model,
+    purpose: params.purpose ?? "isolated-completion",
+    runtimeKind: result.owner.kind,
+    usage: toDiagnosticUsage(usage),
+    costUsd: estimateAggregateUsageCost({
+      usage,
+      provider: result.provider,
+      model: result.model,
+      config,
+      agentDir: params.agentDir,
+    }),
+  });
+}
+
 /** Measure runtime dispatch, not provider-wire inference or an inferred queue wait. */
 export function createIsolatedCompletionDiagnostics(params: {
   config?: OpenClawConfig;
@@ -89,36 +123,3 @@ export function createIsolatedCompletionDiagnostics(params: {
 }
 
 export type IsolatedCompletionDiagnostics = ReturnType<typeof createIsolatedCompletionDiagnostics>;
-
-export function emitIsolatedCompletionUsage(params: {
-  config: OpenClawConfig;
-  agentId: string;
-  agentDir: string;
-  purpose?: IsolatedCompletionPurpose;
-  result: IsolatedCompletionResult;
-}): void {
-  const { config, result } = params;
-  if (params.purpose === "plugin-completion" || !isDiagnosticsEnabled(config)) {
-    return;
-  }
-  const usage = normalizeUsage(result.diagnosticUsage ?? result.usage);
-  if (!hasObservedModelUsage(usage)) {
-    return;
-  }
-  emitTrustedDiagnosticEvent({
-    type: "model.usage",
-    agentId: params.agentId,
-    provider: result.provider,
-    model: result.model,
-    purpose: params.purpose ?? "isolated-completion",
-    runtimeKind: result.owner.kind,
-    usage: toDiagnosticUsage(usage),
-    costUsd: estimateAggregateUsageCost({
-      usage,
-      provider: result.provider,
-      model: result.model,
-      config,
-      agentDir: params.agentDir,
-    }),
-  });
-}
