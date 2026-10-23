@@ -15,6 +15,24 @@ type HarnessAuthProfileSelection = {
   authProfileMode?: string;
 };
 
+/** A successful fallback credential becomes automatic; the selected credential keeps its origin. */
+export function createCommandSuccessfulAuthProfileCallback(
+  params: Pick<AgentAttemptParams, "onSuccessfulAuthProfile">,
+  selection: Pick<HarnessAuthProfileSelection, "authProfileId" | "authProfileIdSource">,
+) {
+  return params.onSuccessfulAuthProfile
+    ? (successfulProfileId: string | undefined) =>
+        params.onSuccessfulAuthProfile?.({
+          authProfileId: successfulProfileId,
+          authProfileIdSource: successfulProfileId
+            ? successfulProfileId === selection.authProfileId
+              ? selection.authProfileIdSource
+              : "auto"
+            : undefined,
+        })
+    : undefined;
+}
+
 export function resolveCommandAuthProfileSelection(params: {
   sessionEntry?: SessionEntry;
   configuredAuthProfileId?: string;
